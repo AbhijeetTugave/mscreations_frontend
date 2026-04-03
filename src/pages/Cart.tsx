@@ -19,7 +19,7 @@ React.useEffect(() => {
   const timer = setTimeout(() => setAnimateTotal(false), 300);
   return () => clearTimeout(timer);
 }, [totalPrice]);
-  const shippingCharge = totalPrice < 1000 ? 200 : 0;
+  const shippingCharge = totalPrice < 1000 ? 80 : 0;
 const finalTotal = totalPrice + shippingCharge;
 const totalMrp = items.reduce(
   (sum, i) => sum + i.quantity * (i.product.mrp || i.product.sellingPrice),
