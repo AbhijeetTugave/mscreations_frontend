@@ -8,6 +8,7 @@ import { productService, Product } from '@/services/productService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/hooks/use-toast';
+import ProductSkeleton from '@/components/products/ProductSkeleton';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -24,6 +25,10 @@ const ProductDetail: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [showSizeChart, setShowSizeChart] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [zoomStyle, setZoomStyle] = useState({});
+const [showZoom, setShowZoom] = useState(false);
 
   const apiUrl = import.meta.env.VITE_API_URL || 'https://mscreations-backend.onrender.com';
 
@@ -44,8 +49,9 @@ const ProductDetail: React.FC = () => {
           );
         }
       } catch (err) {
-        console.error('Failed to fetch product:', err);
-      } finally {
+  console.error('Failed to fetch product:', err);
+  setError('Failed to load product');
+} finally {
         setLoading(false);
       }
     };
@@ -80,20 +86,48 @@ const getImageUrl = (image: string | ImageType | undefined): string => {
 };
 
   if (loading) {
-    return (
-      <Layout>
-        <div className="min-h-[60vh] flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  return (
+    <Layout>
+      <div className="container-custom px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+          {/* Image Skeleton */}
+          <div className="animate-pulse bg-gray-300 rounded-2xl h-[400px]" />
+
+          {/* Content Skeleton */}
+          <div className="space-y-4 animate-pulse">
+            <div className="h-6 bg-gray-300 w-1/2 rounded" />
+            <div className="h-8 bg-gray-300 w-3/4 rounded" />
+            <div className="h-6 bg-gray-300 w-1/3 rounded" />
+            <div className="h-20 bg-gray-300 rounded" />
+            <div className="h-10 bg-gray-300 w-1/2 rounded" />
+          </div>
+
         </div>
-      </Layout>
-    );
-  }
+      </div>
+    </Layout>
+  );
+}
+
+if (error) {
+  return (
+    <Layout>
+      <div className="text-center py-16">
+        <p className="text-red-500">{error}</p>
+      </div>
+    </Layout>
+  );
+}
 
   if (!product) {
     return (
       <Layout>
         <div className="container-custom px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold mb-4">Product Not Found</h1>
+          {/* <h1 className="text-2xl font-bold mb-4">Product Not Found</h1> */}
+          <h1 className="text-2xl font-bold mb-2">Product not found 😕</h1>
+<p className="text-muted-foreground mb-4">
+  This product may have been removed or does not exist.
+</p>
           <Link to="/products">
             <Button>Back to Products</Button>
           </Link>
@@ -175,55 +209,66 @@ await addToCart(product, selectedSize, selectedColor, safeQuantity);
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16">
           {/* Product Images */}
-          <div className="space-y-4">
-            <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-secondary">
-              <img
-                src={mainImage}
-                alt={product.productName}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/placeholder.svg';
-                }}
-              />
-              {hasDiscount && (
-                <span className="absolute top-4 left-4 bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-medium">
-                  {Math.round(((product.mrp - product.sellingPrice) / product.mrp) * 100)}% OFF
-                </span>
-              )}
-              {/* <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-4 right-4 bg-background/80 backdrop-blur-sm"
-              >
-                <Heart className="h-5 w-5" /> 
-              </Button> */}
-            </div>
+        <div className="flex flex-col lg:flex-row gap-4">
 
-            {/* Thumbnails */}
-            {product.images && product.images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {product.images.map((img, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImage(index)}
-                    className={`flex-shrink-0 w-20 h-20 rounded-lg overflow-hidden border-2 transition-all ${selectedImage === index
-                      ? 'border-primary'
-                      : 'border-transparent hover:border-muted-foreground/50'
-                      }`}
-                  >
-                    <img
-                      src={getImageUrl(img)}
-                      alt={`${product.productName} ${index + 1}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/placeholder.svg';
-                      }}
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+  {/* MAIN IMAGE FIRST */}
+  <div className="flex-1 order-1">
+    <div className="relative aspect-[3/4] rounded-2xl overflow-hidden bg-secondary">
+
+      <div
+        className="relative w-full h-full overflow-hidden"
+        onMouseMove={(e) => {
+          const { left, top, width, height } =
+            e.currentTarget.getBoundingClientRect();
+
+          const x = ((e.clientX - left) / width) * 100;
+          const y = ((e.clientY - top) / height) * 100;
+
+          setZoomStyle({
+            backgroundImage: `url(${mainImage})`,
+            backgroundPosition: `${x}% ${y}%`,
+            backgroundSize: '200%',
+          });
+        }}
+        onMouseEnter={() => setShowZoom(true)}
+        onMouseLeave={() => setShowZoom(false)}
+      >
+        <img
+          src={mainImage}
+          className={`w-full h-full object-cover ${
+            showZoom ? 'opacity-0' : 'opacity-100'
+          }`}
+        />
+
+        {showZoom && (
+          <div className="absolute inset-0" style={zoomStyle} />
+        )}
+      </div>
+
+    </div>
+  </div>
+
+  {/* THUMBNAILS BELOW (mobile) / LEFT (desktop) */}
+  <div className="order-2 lg:order-1 flex lg:flex-col gap-2 w-full lg:w-20 overflow-x-auto pb-2">
+    {product.images.map((img, index) => (
+      <button
+        key={index}
+        onClick={() => setSelectedImage(index)}
+        className={`w-14 h-14 lg:w-16 lg:h-16 flex-shrink-0 rounded-lg overflow-hidden border-2 ${
+          selectedImage === index
+            ? 'border-primary'
+            : 'border-gray-200'
+        }`}
+      >
+        <img
+          src={getImageUrl(img)}
+          className="w-full h-full object-cover"
+        />
+      </button>
+    ))}
+  </div>
+
+</div>
 
           {/* Product Info */}
           <div className="space-y-6">
@@ -431,7 +476,13 @@ await addToCart(product, selectedSize, selectedColor, safeQuantity);
         </div>
 
         {/* Related Products */}
-        {relatedProducts.length > 0 && (
+        {loading ? (
+  <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+    {[...Array(4)].map((_, i) => (
+      <ProductSkeleton key={i} />
+    ))}
+  </div>
+) : relatedProducts.length > 0 && (
           <div className="mt-16 sm:mt-24">
             <h2 className="font-display text-2xl sm:text-3xl font-bold mb-8">
               You May Also Like

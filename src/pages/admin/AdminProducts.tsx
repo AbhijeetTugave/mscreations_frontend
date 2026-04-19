@@ -23,7 +23,7 @@ type ImageType = {
 
 const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 
-const MAX_IMAGES = 1;
+const MAX_IMAGES = 4;
 /* ================= COMPONENT ================= */
 
 const AdminProducts: React.FC = () => {
@@ -51,7 +51,8 @@ const AdminProducts: React.FC = () => {
   /* ================= IMAGES ================= */
   // const [images, setImages] = useState<string[]>([]);
   const [images, setImages] = useState<{ url: string; public_id: string }[]>([]);
-  const [preview, setPreview] = useState<string | null>(null);
+  // const [preview, setPreview] = useState<string | null>(null);
+  
 
   // loading
   const [loading, setLoading] = useState(false);
@@ -72,7 +73,8 @@ const AdminProducts: React.FC = () => {
     sizes: [] as string[],
     colors: [] as string[],
   });
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  // const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   /* ================= AUTH ================= */
   useEffect(() => {
     if (!isAuthenticated || !isAdmin) navigate('/login');
@@ -165,8 +167,9 @@ useEffect(() => {
   setIsEdit(false);
   setEditingId(null);
   setImages([]);
-  setImageFile(null);
-  setPreview(null);
+  setImageFiles([]);
+  // setImageFile(null);
+  // setPreview(null);
   setErrors({}); // ✅ CLEAR ERRORS HERE
 
   setForm({
@@ -223,37 +226,53 @@ useEffect(() => {
   };
 
   /* ================= IMAGE UPLOAD ================= */
-  const handleImageUpload = (files: FileList | null) => {
-    if (!files) return;
+//   const handleImageUpload = (files: FileList | null) => {
+//     if (!files) return;
 
-    const file = files[0];
+//     const file = files[0];
 
-    if (!file.type.startsWith('image/')) {
-      toast({ title: 'Please upload an image file' });
-      return;
-    }
+//     if (!file.type.startsWith('image/')) {
+//       toast({ title: 'Please upload an image file' });
+//       return;
+//     }
 
-   if (file.size > 3 * 1024 * 1024) {
-  toast({
-    title: 'Image too large',
-    description: 'Max size allowed is 3MB',
-  });
-  return;
-}
+//    if (file.size > 3 * 1024 * 1024) {
+//   toast({
+//     title: 'Image too large',
+//     description: 'Max size allowed is 3MB',
+//   });
+//   return;
+// }
 
-    // 🔥 NO UPLOAD HERE
-    setImageFile(file);
-    // setImages([URL.createObjectURL(file)]); // preview only
-setPreview(URL.createObjectURL(file));
+//     //  NO UPLOAD HERE
+//     setImageFile(file);
+//     // setImages([URL.createObjectURL(file)]); // preview only
+// setPreview(URL.createObjectURL(file));
 
-  };
+//   };
 
+const handleImageUpload = (files: FileList | null) => {
+  if (!files) return;
 
-  const removeImage = (index: number) => {
-    setImages([]);
-    setImageFile(null);
-    setPreview(null);
-  };
+  const newFiles = Array.from(files);
+
+  const total = images.length + imageFiles.length + newFiles.length;
+
+  if (total > MAX_IMAGES) {
+    toast({ title: `Max ${MAX_IMAGES} images allowed` });
+    return;
+  }
+
+  const validFiles = newFiles.filter(file => file.type.startsWith('image/'));
+
+  setImageFiles(prev => [...prev, ...validFiles]);
+};
+
+  // const removeImage = (index: number) => {
+  //   setImages([]);
+  //   // setImageFile(null);
+  //   // setPreview(null);
+  // };
 
   const validateForm = () => {
   const newErrors: Record<string, string> = {};
@@ -300,7 +319,7 @@ setPreview(URL.createObjectURL(file));
   if (form.sizes.length === 0)
     newErrors.sizes = 'Select at least one size';
 
-  if (images.length === 0 && !imageFile)
+  if (images.length === 0 && imageFiles.length === 0)
     newErrors.images = 'Product image is required';
 
   setErrors(newErrors);
@@ -358,7 +377,8 @@ setPreview(URL.createObjectURL(file));
     return toast({ title: 'Select at least one size', variant: 'destructive' });
   }
 
-  if (images.length === 0 && !imageFile) {
+  // if (images.length === 0 && !imageFile)
+  if (images.length === 0 && imageFiles.length === 0) {
     return toast({ title: 'Product image is required', variant: 'destructive' });
   }
 
@@ -387,19 +407,30 @@ setPreview(URL.createObjectURL(file));
   }
 
   // let uploadedImages: string[] = images;
-  let uploadedImages = images;
+  // let uploadedImages = images;
 
   // Upload image only when needed
-  if (imageFile) {
-    const res = await adminService.uploadImage(imageFile);
-    // uploadedImages = [res.data.path];
-    uploadedImages = [
-  {
+//   if (imageFile) {
+//     const res = await adminService.uploadImage(imageFile);
+//     // uploadedImages = [res.data.path];
+//     uploadedImages = [
+//   {
+//     url: res.data.url,
+//     public_id: res.data.public_id
+//   }
+// ];
+//   }
+const uploadedImages = [...images];
+
+for (const file of imageFiles) {
+  const res = await adminService.uploadImage(file);
+
+  uploadedImages.push({
     url: res.data.url,
     public_id: res.data.public_id
-  }
-];
-  }
+  });
+}
+
 setLoading(true);
   const payload = {
     productName: form.productName.trim(),
@@ -677,7 +708,7 @@ setLoading(true);
   </div> */}
   <div className="flex gap-3 mt-2">
 
-  {preview ? (
+  {/* {preview ? (
     <div className="relative">
       <img
         src={preview}
@@ -701,9 +732,72 @@ setLoading(true);
         className="w-24 h-24 rounded object-cover"
       />
     </div>
-  ) : null}
+  ) : null} */}
 
- {!preview && (
+<div>
+  <div className="flex gap-3 flex-wrap mt-2">
+
+    {/* Existing images (edit mode) */}
+    {images.map((img, i) => (
+      <div key={i} className="relative">
+        <img src={img.url} className="w-24 h-24 rounded object-cover" />
+        <button
+          type="button"
+          onClick={() =>
+            setImages(prev => prev.filter((_, index) => index !== i))
+          }
+          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    ))}
+
+    {/* New uploads */}
+    {imageFiles.map((file, i) => (
+      <div key={i} className="relative">
+        <img
+          src={URL.createObjectURL(file)}
+          className="w-24 h-24 rounded object-cover"
+        />
+        <button
+          type="button"
+          onClick={() =>
+            setImageFiles(prev =>
+              prev.filter((_, index) => index !== i)
+            )
+          }
+          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    ))}
+
+    {/* Upload button */}
+    {(images.length + imageFiles.length) < MAX_IMAGES && (
+      <label className="w-24 h-24 border-2 border-dashed rounded flex items-center justify-center cursor-pointer">
+        <Upload />
+        <input
+          type="file"
+          multiple
+          hidden
+          onChange={e => handleImageUpload(e.target.files)}
+        />
+      </label>
+    )}
+
+  </div>
+
+  {/* Error */}
+  {errors.images && (
+    <p className="text-xs text-red-500 mt-2">
+      {errors.images}
+    </p>
+  )}
+</div>
+
+ {/* {!preview && (
     <label
       htmlFor="product-image-upload"
       className="w-32 h-32 border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-muted transition text-muted-foreground"
@@ -721,16 +815,16 @@ setLoading(true);
         onChange={e => handleImageUpload(e.target.files)}
       />
     </label>
-  )}
+  )} */}
 
 </div>
 
-  {/* 🔥 IMAGE ERROR GOES HERE (OUTSIDE FLEX, INSIDE WRAPPER) */}
+  {/*  IMAGE ERROR GOES HERE (OUTSIDE FLEX, INSIDE WRAPPER)
   {errors.images && (
     <p className="text-xs text-red-500 mt-2">
       {errors.images}
     </p>
-  )}
+  )} */}
 </div>
 
             {/* NAME */}

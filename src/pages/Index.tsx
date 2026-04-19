@@ -12,6 +12,8 @@ import categoryWomen from '@/assets/category-women.jpg';
 import categoryMen from '@/assets/category-men.jpg';
 import categoryKids from '@/assets/category-kids.jpg';
 
+import ProductSkeleton from '@/components/products/ProductSkeleton';
+
 const categories = [
   { id: 'women', name: 'Women', image: categoryWomen },
   { id: 'men', name: 'Men', image: categoryMen },
@@ -27,14 +29,21 @@ const benefits = [
 
 const Index: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [visibleCount, setVisibleCount] = useState(4);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await productService.getProducts();
-        setProducts(response.data || []);
+const response = await productService.getProducts();
+        // setProducts(response.data || []);
+       setProducts(
+  (response.data || []).sort(
+    (a, b) =>
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
+);
       } catch (err) {
         console.error('Failed to fetch products:', err);
         setError('Failed to load products');
@@ -46,32 +55,59 @@ const Index: React.FC = () => {
     fetchProducts();
   }, []);
 
-  const featuredProducts = products.slice(0, 8);
+  useEffect(() => {
+  if (!loading && products.length > 4) {
+    const timer = setTimeout(() => {
+      setVisibleCount(Math.min(8, products.length));
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }
+}, [loading, products]);
+  // const featuredProducts = products.slice(0, 8);
+  const featuredProducts = products.slice(0, visibleCount);
 
   /* ----------------------------------
      Featured Products Rendering Logic
   ---------------------------------- */
   let featuredContent: React.ReactNode;
 
-  if (loading) {
-    featuredContent = (
-      <div className="flex justify-center items-center py-16">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+ if (loading) {
+  featuredContent = (
+    <>
+      {/* Mobile Skeleton (Slider style) */}
+      <div className="sm:hidden flex gap-4 overflow-x-auto px-4">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="w-[75vw] flex-shrink-0">
+            <ProductSkeleton />
+          </div>
+        ))}
       </div>
-    );
-  } else if (error) {
+
+      {/* Desktop Skeleton */}
+      <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-6">
+        {[...Array(8)].map((_, i) => (
+          <ProductSkeleton key={i} />
+        ))}
+      </div>
+    </>
+  );
+} else if (error) {
     featuredContent = (
       <div className="text-center py-16">
         <p className="text-muted-foreground">{error}</p>
       </div>
     );
   } else if (featuredProducts.length === 0) {
-    featuredContent = (
-      <div className="text-center py-16">
-        <p className="text-muted-foreground">No products available yet.</p>
-      </div>
-    );
-  } else {
+  featuredContent = (
+    <div className="flex flex-col items-center justify-center py-16 gap-3">
+      <p className="text-lg font-medium">No products added</p>
+      <p className="text-muted-foreground text-sm">
+        Please check back later or add new products.
+      </p>
+    </div>
+  );
+} else {
     featuredContent = (
       <>
         {/* Mobile Swipe View */}
@@ -89,11 +125,22 @@ const Index: React.FC = () => {
         </div>
 
         {/* Desktop Grid View */}
-        <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-6">
           {featuredProducts.map((product) => (
             <ProductCard key={product._id} product={product} />
           ))}
-        </div>
+        </div> */}
+        <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-6">
+  {featuredProducts.map((product) => (
+    <ProductCard key={product._id} product={product} />
+  ))}
+
+  {/* Skeleton for remaining */}
+  {visibleCount < products.length &&
+  [...Array(products.length - visibleCount)].map((_, i) => (
+    <ProductSkeleton key={`skeleton-${i}`} />
+  ))}
+</div>
       </>
     );
   }
